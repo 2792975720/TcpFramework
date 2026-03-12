@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Additive/AdditiveConnection.unity
+    guid: cc489be8bb6ae444283f394c5e5fa8e2
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Additive/AdditiveGlobal.unity
+    guid: c43835f124dc68747a2091c4b8c42f80
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Additive/AdditiveMain.unity
+    guid: e7d3ac2d556912042aca9aa1947aea07
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_0.unity
+    guid: 7643cdc3eefb15f4f8608cc633c55f7e
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_1.unity
+    guid: aab2581cdfbe8f44698ef91d36f2d6c6
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_2.unity
+    guid: 969cc8a8a67c58b4da9baa82a65c66bf
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_3.unity
+    guid: 8ac819f926d1e914e9552e79c147082d
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_Start.unity
+    guid: afbcf8f41ca78ef4296672aeb824f605
+  - enabled: 1
+    path: Assets/FishNet/Demos/Authenticator/Scenes/Authenticator.unity
+    guid: 0bc02b628363de5499d5e7c00bd63b1b
+  - enabled: 1
+    path: Assets/FishNet/Demos/Prediction/CharacterController/CharacterController
+      Prediction Demo.unity
+    guid: 941f6f8cbac7e9d418ffc6f22ee9359f
+  - enabled: 1
+    path: Assets/FishNet/Demos/ColliderRollback/Scenes/ColliderRollbackDemo.unity
+    guid: 9e30e3df1ec43184daee875457d49364
+  - enabled: 1
+    path: Assets/FishNet/Demos/HashGrid/Scenes/HashGrid_Demo.unity
+    guid: 99947f0521cb96a4087d4496b8761a23
+  - enabled: 1
+    path: Assets/FishNet/Demos/IntermediateLayer/Scenes/IntermediateLayer.unity
+    guid: fa009a2a1952c0647ae5cf75a5fd4c05
+  - enabled: 1
+    path: Assets/FishNet/Demos/Benchmarks/NetworkTransform/Scenes/NetworkTransform
+      Benchmark.unity
+    guid: 961b96636e4c7644584dc8dfd0d0aad6
+  - enabled: 1
+    path: Assets/FishNet/Runtime/Plugins/GameKit/Dependencies/Utilities/Types/ObjectPooling/Demo/Scenes/ObjectPool.unity
+    guid: 986fe9a85bd2d904fa3d44ac2c7bf0da
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Replace/ReplaceConnection.unity
+    guid: 58053e81b62de3a499afaf0f73d01b01
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Replace/ReplaceGlobal.unity
+    guid: fddd81e62368fe9448b0eb0a80da6bb4
+  - enabled: 1
+    path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Replace/ReplaceMain.unity
+    guid: 099398b014b86004abd99a7d21cf417a
+  - enabled: 1
+    path: Assets/FishNet/Demos/Prediction/Rigidbody/Rigidbody Prediction Demo.unity
+    guid: 0b7f6237292ee8a4eabe7f955f4a4de5
+  - enabled: 1
+    path: Assets/Scenes/SampleScene.unity
+    guid: 9fc0d4010bbf28b4594072e72b8655ab
+  m_configObjects: {}
