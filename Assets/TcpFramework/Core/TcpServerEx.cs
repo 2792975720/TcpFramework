@@ -22,10 +22,10 @@ namespace TcpFramework
 
         public void Start(int port)
         {
-            Log.Info?.Invoke("Server Start called");
+            Log.Write(LogLevel.Info, "Server start called.", Log.Fields(("port", port)));
             _listener = new TcpListener(IPAddress.Any, port);
             _listener.Start();
-            Log.Info?.Invoke($"Server listening on {port}");
+            Log.Write(LogLevel.Info, "Server listening.", Log.Fields(("port", port)));
             _ = AcceptLoop();
         }
 
@@ -33,7 +33,7 @@ namespace TcpFramework
         {
             payload ??= Array.Empty<byte>();
             foreach (var session in _sessions)
-                session.Send(msgId, payload);
+                session.Send(msgId, 0, payload);
         }
 
         private async Task AcceptLoop()
@@ -48,7 +48,7 @@ namespace TcpFramework
 
                     OnClientConnected?.Invoke(session);
 
-                    session.OnMessage += (msgId, data) =>
+                    session.OnMessage += (msgId, requestId, data) =>
                     {
                         OnClientMessage?.Invoke(session, msgId, data);
                     };
@@ -61,7 +61,7 @@ namespace TcpFramework
                 catch (ObjectDisposedException) { break; }
                 catch (Exception ex)
                 {
-                    Log.Error?.Invoke($"AcceptLoop: {ex.Message}");
+                    Log.Write(LogLevel.Error, "AcceptLoop failed.", exception: ex);
                 }
             }
         }

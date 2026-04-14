@@ -17,17 +17,27 @@ namespace TcpFramework
 
         private readonly object _sendLock = new object();
         private bool _closed;
-        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private readonly CancellationTokenSource _cts;
+        private readonly int _invalidPacketDisconnectThreshold;
+        private int _invalidPacketCount;
+        private int _disconnectedNotified;
+        private readonly string _connectionId;
 
-        public event Action<ushort, byte[]> OnMessage;
+        public event Action<ushort, int, byte[]> OnMessage;
         public event Action OnDisconnected;
+        public event Action<int> OnInvalidPacket;
 
         public bool Connected => Client != null && Client.Connected;
 
-        public TcpSession(TcpClient client)
+        public int InvalidPacketCount => Volatile.Read(ref _invalidPacketCount);
+
+        public TcpSession(TcpClient client, CancellationToken lifetimeToken = default, int invalidPacketDisconnectThreshold = ProtocolConstants.DefaultInvalidPacketDisconnectThreshold)
         {
             Client = client ?? throw new ArgumentNullException(nameof(client));
             Stream = client.GetStream();
+            _invalidPacketDisconnectThreshold = Math.Max(1, invalidPacketDisconnectThreshold);
+            _connectionId = client.Client?.RemoteEndPoint?.ToString() ?? "unknown";
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
             _ = ReceiveLoop(_cts.Token);
         }
 
@@ -44,8 +54,8 @@ namespace TcpFramework
 
                     Buffer.Write(recv, 0, len);
 
-                    foreach (var (msgId, payload) in LengthPrefixedCodec.Decode(Buffer))
-                        OnMessage?.Invoke(msgId, payload);
+                    foreach (var (msgId, requestId, payload) in LengthPrefixedCodec.Decode(Buffer, OnInvalidFrame))
+                        OnMessage?.Invoke(msgId, requestId, payload);
                 }
             }
             catch (OperationCanceledException) { }
@@ -53,13 +63,23 @@ namespace TcpFramework
             finally
             {
                 Close();
-                OnDisconnected?.Invoke();
+                NotifyDisconnectedOnce();
             }
         }
 
-        public bool Send(ushort msgId, byte[] payload)
+        private void OnInvalidFrame(int frameLength)
         {
-            byte[] packet = LengthPrefixedCodec.Encode(msgId, payload);
+            int count = Interlocked.Increment(ref _invalidPacketCount);
+            OnInvalidPacket?.Invoke(frameLength);
+            Log.Write(LogLevel.Warn, "Invalid frame length detected.",
+                Log.Fields(("connectionId", _connectionId), ("frameLength", frameLength), ("count", count)));
+            if (count >= _invalidPacketDisconnectThreshold)
+                Close();
+        }
+
+        public bool Send(ushort msgId, int requestId, byte[] payload)
+        {
+            byte[] packet = LengthPrefixedCodec.Encode(msgId, requestId, payload);
             return Send(packet);
         }
 
@@ -77,9 +97,10 @@ namespace TcpFramework
                 }
                 catch (Exception ex)
                 {
-                    Log.Error?.Invoke($"TcpSession Send Error: {ex.Message}");
+                    Log.Write(LogLevel.Error, "TcpSession send failed.",
+                        Log.Fields(("connectionId", _connectionId), ("bytes", data.Length)), ex);
                     Close();
-                    OnDisconnected?.Invoke();
+                    NotifyDisconnectedOnce();
                     return false;
                 }
             }
@@ -95,6 +116,12 @@ namespace TcpFramework
             try { Client?.Close(); } catch { }
             Stream = null;
             Client = null;
+            NotifyDisconnectedOnce();
+        }
+
+        private void NotifyDisconnectedOnce()
+        {
+            if (Interlocked.Exchange(ref _disconnectedNotified, 1) == 1) return;
             OnDisconnected?.Invoke();
         }
     }

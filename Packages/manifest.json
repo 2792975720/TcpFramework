@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.boxqkrtm.ide.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
     "com.unity.feature.development": "1.0.1",
     "com.unity.textmeshpro": "3.0.6",
     "com.unity.timeline": "1.7.6",

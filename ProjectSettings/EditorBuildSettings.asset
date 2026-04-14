@@ -5,25 +5,25 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Additive/AdditiveConnection.unity
     guid: cc489be8bb6ae444283f394c5e5fa8e2
-  - enabled: 1
+  - enabled: 0
     path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Additive/AdditiveGlobal.unity
     guid: c43835f124dc68747a2091c4b8c42f80
-  - enabled: 1
+  - enabled: 0
     path: Assets/FishNet/Demos/SceneManager (Old Examples)/Scenes/Additive/AdditiveMain.unity
     guid: e7d3ac2d556912042aca9aa1947aea07
-  - enabled: 1
+  - enabled: 0
     path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_0.unity
     guid: 7643cdc3eefb15f4f8608cc633c55f7e
-  - enabled: 1
+  - enabled: 0
     path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_1.unity
     guid: aab2581cdfbe8f44698ef91d36f2d6c6
-  - enabled: 1
+  - enabled: 0
     path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_2.unity
     guid: 969cc8a8a67c58b4da9baa82a65c66bf
-  - enabled: 1
+  - enabled: 0
     path: Assets/FishNet/Demos/SceneManager/Additive Scenes/Scenes/AdditiveScenes_3.unity
     guid: 8ac819f926d1e914e9552e79c147082d
   - enabled: 1

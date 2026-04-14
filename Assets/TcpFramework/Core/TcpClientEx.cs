@@ -11,29 +11,74 @@ namespace TcpFramework
     /// </summary>
     public class TcpClientEx
     {
+        public enum ConnectionState
+        {
+            Disconnected,
+            Connecting,
+            Connected,
+            Reconnecting,
+            Closing
+        }
+
         public TcpSession Session { get; private set; }
         public HeartbeatManager Heartbeat { get; private set; }
 
         private string _host;
         private int _port;
         private bool _autoReconnect = true;
-        private CancellationTokenSource _cts;
+        private readonly object _stateLock = new object();
+        private CancellationTokenSource _lifecycleCts;
+        private Task _connectLoopTask;
+        private int _invalidPacketCount;
+        private ConnectionState _state = ConnectionState.Disconnected;
+        private TcpClientOptions _options = new TcpClientOptions();
+        private string _connectionId = Guid.NewGuid().ToString("N");
 
-        public event Action<ushort, byte[]> OnMessage;
+        public event Action<ushort, int, byte[]> OnMessage;
         public event Action OnConnected;
         public event Action OnDisconnected;
+        public event Action<ushort, Exception> OnMessageDispatchError;
 
-        public async Task ConnectAsync(string host, int port)
+        public ConnectionState State
         {
-            _host = host ?? throw new ArgumentNullException(nameof(host));
-            _port = port;
-            _cts = new CancellationTokenSource();
-            await TryConnectLoop().ConfigureAwait(false);
+            get
+            {
+                lock (_stateLock) return _state;
+            }
         }
 
-        public void Send(ushort msgId, byte[] payload)
+        public int InvalidPacketCount => Volatile.Read(ref _invalidPacketCount);
+        public string ConnectionId => _connectionId;
+
+        public void UpdateOptions(TcpClientOptions options)
         {
-            byte[] packet = LengthPrefixedCodec.Encode(msgId, payload ?? Array.Empty<byte>());
+            if (options == null) return;
+            _options = options;
+            Heartbeat?.UpdateInterval(_options.HeartbeatIntervalMs);
+        }
+
+        public async Task ConnectAsync(string host, int port, CancellationToken token = default)
+        {
+            lock (_stateLock)
+            {
+                if (_state != ConnectionState.Disconnected)
+                    throw new InvalidOperationException($"ConnectAsync is not allowed in state {_state}.");
+                _state = ConnectionState.Connecting;
+            }
+
+            _host = host ?? throw new ArgumentNullException(nameof(host));
+            _port = port;
+            _connectionId = $"{_host}:{_port}-{Guid.NewGuid():N}";
+            _autoReconnect = true;
+            _invalidPacketCount = 0;
+            _lifecycleCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            _connectLoopTask = Task.Run(() => ConnectLoopAsync(initialConnect: true, _lifecycleCts.Token));
+            await _connectLoopTask.ConfigureAwait(false);
+        }
+
+        public void Send(ushort msgId, byte[] payload, int requestId = 0)
+        {
+            byte[] packet = LengthPrefixedCodec.Encode(msgId, requestId, payload ?? Array.Empty<byte>());
             Session?.Send(packet);
         }
 
@@ -44,86 +89,125 @@ namespace TcpFramework
             Session?.Send(packet);
         }
 
-        private async Task TryConnectLoop()
+        private async Task ConnectLoopAsync(bool initialConnect, CancellationToken token)
         {
-            while (_cts != null && !_cts.IsCancellationRequested)
+            while (!token.IsCancellationRequested)
             {
                 try
                 {
                     var client = new TcpClient();
                     await client.ConnectAsync(_host, _port).ConfigureAwait(false);
 
-                    Session = new TcpSession(client);
-
-                    StartReceive();
+                    BindSession(new TcpSession(client, token, _options.InvalidPacketDisconnectThreshold));
                     StartHeartbeat();
 
-                    OnConnected?.Invoke();
+                    lock (_stateLock)
+                        _state = ConnectionState.Connected;
+
+                    SafeInvoke(() => OnConnected?.Invoke());
                     return;
                 }
                 catch (Exception ex)
                 {
-                    Log.Error?.Invoke($"Connect failed: {ex.Message}, retry...");
-                    await Task.Delay(3000, _cts.Token).ConfigureAwait(false);
+                    if (token.IsCancellationRequested) return;
+                    Log.Write(LogLevel.Warn, "Connect failed, will retry.",
+                        Log.Fields(("connectionId", _connectionId), ("host", _host), ("port", _port), ("state", State.ToString())), ex);
+                    if (!_autoReconnect && !initialConnect)
+                        break;
+                    try
+                    {
+                        await Task.Delay(Math.Max(100, _options.ReconnectIntervalMs), token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
                 }
+            }
+
+            lock (_stateLock)
+            {
+                if (_state != ConnectionState.Closing)
+                    _state = ConnectionState.Disconnected;
             }
         }
 
-        private void StartReceive()
+        private void BindSession(TcpSession session)
         {
-            Task.Run(async () =>
+            Session = session;
+            Session.OnMessage += (msgId, requestId, payload) =>
             {
-                var stream = Session.Stream;
-                byte[] buf = new byte[4096];
-
+                Heartbeat?.Refresh();
                 try
                 {
-                    while (Session != null && Session.Connected)
-                    {
-                        int len = await stream.ReadAsync(buf, 0, buf.Length).ConfigureAwait(false);
-                        if (len <= 0) break;
-
-                        Session.Buffer.Write(buf, 0, len);
-
-                        foreach (var (msgId, payload) in LengthPrefixedCodec.Decode(Session.Buffer))
-                        {
-                            Heartbeat?.Refresh();
-                            OnMessage?.Invoke(msgId, payload);
-                        }
-                    }
+                    OnMessage?.Invoke(msgId, requestId, payload);
                 }
-                catch (OperationCanceledException) { }
-                catch { }
-
-                HandleDisconnect();
-            });
+                catch (Exception ex)
+                {
+                    OnMessageDispatchError?.Invoke(msgId, ex);
+                    Log.Write(LogLevel.Error, "OnMessage callback failed.",
+                        Log.Fields(("connectionId", _connectionId), ("msgId", msgId), ("requestId", requestId)), ex);
+                }
+            };
+            Session.OnInvalidPacket += _ => Interlocked.Increment(ref _invalidPacketCount);
+            Session.OnDisconnected += HandleDisconnect;
         }
 
         private void StartHeartbeat()
         {
             Heartbeat = new HeartbeatManager(() =>
             {
-                Send(ProtocolConstants.HeartbeatMsgId, Array.Empty<byte>());
-            });
-            Heartbeat.Start();
+                Send(ProtocolConstants.HeartbeatMsgId, Array.Empty<byte>(), 0);
+            }, _options.HeartbeatIntervalMs);
+            Heartbeat.Start(_lifecycleCts.Token);
         }
 
         private void HandleDisconnect()
         {
-            OnDisconnected?.Invoke();
-            Session?.Close();
+            if (_lifecycleCts == null || _lifecycleCts.IsCancellationRequested) return;
+
+            lock (_stateLock)
+            {
+                if (_state == ConnectionState.Closing || _state == ConnectionState.Disconnected)
+                    return;
+                if (_state == ConnectionState.Reconnecting)
+                    return;
+                _state = ConnectionState.Reconnecting;
+            }
+
+            SafeInvoke(() => OnDisconnected?.Invoke());
+            Heartbeat?.Stop();
+            Heartbeat = null;
             Session = null;
 
-            if (_autoReconnect && _cts != null && !_cts.IsCancellationRequested)
-                _ = TryConnectLoop();
+            if (_autoReconnect)
+                _ = Task.Run(() => ConnectLoopAsync(initialConnect: false, _lifecycleCts.Token));
         }
 
         public void Close()
         {
-            _autoReconnect = false;
-            _cts?.Cancel();
-            Session?.Close();
-            Session = null;
+            lock (_stateLock)
+            {
+                if (_state == ConnectionState.Closing || _state == ConnectionState.Disconnected)
+                    return;
+                _state = ConnectionState.Closing;
+            }
+
+            try
+            {
+                _autoReconnect = false;
+                _lifecycleCts?.Cancel();
+                Heartbeat?.Stop();
+                Heartbeat = null;
+                Session?.Close();
+                Session = null;
+            }
+            finally
+            {
+                _lifecycleCts?.Dispose();
+                _lifecycleCts = null;
+                lock (_stateLock) _state = ConnectionState.Disconnected;
+            }
         }
 
         /// <summary>发送文本，msgId 默认为 1</summary>
@@ -131,6 +215,11 @@ namespace TcpFramework
         {
             var bytes = System.Text.Encoding.UTF8.GetBytes(msg ?? "");
             Send(msgId, bytes);
+        }
+
+        private static void SafeInvoke(Action action)
+        {
+            try { action?.Invoke(); } catch { }
         }
     }
 }

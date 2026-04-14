@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace TcpFramework
 {
@@ -7,26 +8,42 @@ namespace TcpFramework
     public class HeartbeatManager
     {
         private readonly Action _sendHeartbeat;
-        private readonly int _intervalMs;
-        private Timer _timer;
+        private int _intervalMs;
+        private Task _loopTask;
 
         public DateTime LastReceiveTime { get; private set; } = DateTime.Now;
 
         public HeartbeatManager(Action send, int intervalMs = 3000)
         {
             _sendHeartbeat = send ?? throw new ArgumentNullException(nameof(send));
-            _intervalMs = intervalMs;
+            _intervalMs = Math.Max(100, intervalMs);
         }
 
-        public void Start()
+        public void Start(CancellationToken token)
         {
-            _timer = new Timer(_ => _sendHeartbeat(), null, _intervalMs, _intervalMs);
+            _loopTask = Task.Run(async () =>
+            {
+                try
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        await Task.Delay(Volatile.Read(ref _intervalMs), token).ConfigureAwait(false);
+                        if (token.IsCancellationRequested) break;
+                        _sendHeartbeat();
+                    }
+                }
+                catch (OperationCanceledException) { }
+            }, token);
         }
 
         public void Stop()
         {
-            _timer?.Dispose();
-            _timer = null;
+            _loopTask = null;
+        }
+
+        public void UpdateInterval(int intervalMs)
+        {
+            Interlocked.Exchange(ref _intervalMs, Math.Max(100, intervalMs));
         }
 
         public void Refresh()
