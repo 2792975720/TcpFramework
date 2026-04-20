@@ -1,5 +1,19 @@
 # TcpFramework — 通用 TCP 网络通信模块
 
+## 作为 UPM 包给其他 Unity 工程使用
+
+- **包名**：`com.kali.tcpframework`
+- **最低 Unity**：2019.4.12f1（`package.json` 中 `unity` + `unityRelease`）
+- **本仓库内嵌路径**：`Packages/com.kali.tcpframework/`
+
+在其他工程的 `Packages/manifest.json` 的 `dependencies` 里增加（把 URL 换成你的仓库地址，并用 **tag/commit** 固定版本）：
+
+```json
+"com.kali.tcpframework": "https://github.com/<你的账号>/TcpFramework.git?path=/Packages/com.kali.tcpframework#v1.0.0"
+```
+
+拉取后代码位于包内 `Runtime/`，程序集名为 **Kali.TcpFramework**。
+
 ## 结构
 
 - **Core**： TcpServerEx （服务端）、 TcpClientEx （客户端）、 TcpSession （单连接）
@@ -7,7 +21,7 @@
 - **Service**： MessageDispatcher （按  IMessage  类型注册/派发）、 TcpService （客户端门面）、ITcpMiddleware、LoggingMiddleware、TcpServiceOptions、TcpServiceMetrics、TcpConnectionPool、IMessageScheduler
 - **Heartbeat**： HeartbeatManager  保活与超时
 - **Utils**： Log （可注入）、 ConcurrentQueueEx 、 TcpEndpointParser （从网址解析 host:port）
-- **Test**：简单示例（ SimpleServer 、 SimpleClient ）
+- **Test**：示例与联调脚本（ TcpFeatureTest* 等）
 - **Docs**：说明文档（本文件）
 
 ## 协议格式

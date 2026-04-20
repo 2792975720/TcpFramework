@@ -1,0 +1,17 @@
+{
+  "name": "com.kali.tcpframework",
+  "version": "1.0.0",
+  "displayName": "Kali TcpFramework",
+  "description": "Length-prefixed TCP client/server, RPC-style SendAsync, middleware, serializers, metrics, and optional main-thread dispatch for Unity.",
+  "unity": "2019.4",
+  "unityRelease": "12f1",
+  "author": {
+    "name": "kali"
+  },
+  "keywords": [
+    "tcp",
+    "network",
+    "client",
+    "server"
+  ]
+}
